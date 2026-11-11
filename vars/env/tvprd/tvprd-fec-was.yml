@@ -1,0 +1,81 @@
+# =========== fec environment variables ===========
+gv_env_name: "prd"
+
+# Setup for manual execute command, or cid in jira flow will bring ap_version from ci ticket
+fec_ap_history:
+  - "0.0.1"
+
+# Overwrite repository setting in all.yml for production
+# Remember MUST save golden image into PRD repo
+gv_repo_url: "https://repos.linebank.com.tw:8082/artifactory/golden-image-prd-release"
+
+################################################################################
+#  Installation flag                                                           #
+################################################################################
+fec_edda_api_installation:
+  tvprd-fec-was01: true
+  tvprd-fec-was02: true
+
+fec_edda_txn_installation:
+  tvprd-fec-was01: true
+  tvprd-fec-was02: true
+
+# batch 無分散鎖，同環境僅能一台啟用
+fec_edda_batch_installation:
+  tvprd-fec-was01: true
+
+fec_edda_web_installation:
+  tvprd-fec-was01: true
+  tvprd-fec-was02: true
+
+common_config:
+  fec_domain: "lbtwsys.com"
+  db_name: "FEC_APP"
+  log_level_root: "WARN"
+  log_level_app: "DEBUG"
+  log_buffer_max_events: 128
+
+fec_edda_api_config:
+  swagger_enabled: false
+  cert_base_dir: "/opt/sw/keystore"
+  ssl_keystore_file: "linebank-keystore-prd.p12"
+  line_sso_enabled: true
+  line_sso_cas_server_url_prefix: "https://sso.lbtw.linebanktw.com:8443/cas/"
+  txn_base_url: "https://{{ host_name }}.{{ common_config.fec_domain }}:{{ fec_edda_txn_port }}"
+  jvm_opts: "-Xms2g -Xmx4g -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath={{ fec_edda_log_dir }}/heap_dump.hprof"
+
+fec_edda_txn_config:
+  cert_base_dir: "/opt/sw/keystore"
+  ssl_keystore_file: "linebank-keystore-prd.p12"
+  ws_ssl_keystore_file: "linebank-keystore-prd.p12"
+  ws_ssl_truststore_file: "twnch-truststore-prd.jks"
+  edda_mode: "real"
+  twnch_notice_sys_msg_bc_wsdl: "https://edda.twnch.org.tw/EDDA_WebService/eDDA_NoticeSysMsg_BC?wsdl"
+  jvm_opts: "-Xms2g -Xmx4g -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath={{ fec_edda_log_dir }}/txn_heap_dump.hprof"
+
+fec_edda_batch_config:
+  instance_id: "batch-prd-01"
+  jvm_opts: "-Xms512m -Xmx1g -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath={{ fec_edda_log_dir }}/batch_heap_dump.hprof"
+
+fec_edda_web_config:
+  proxy_ssl_name: "{{ host_name }}.{{ common_config.fec_domain }}"
+  api_base_url: "/fec/api"
+  app_base_path: "/fec-edda"
+  debug: false
+  mock_functions: false
+  sso_enabled: true
+  sso_login_url: "https://sso.lbtw.linebanktw.com:8443/cas/login"
+  sso_logout_url: "https://sso.lbtw.linebanktw.com:8443/cas/logout"
+
+# 機密值一律引用 vars/vault/{{ site }}{{ env }}-fec-secrets.yml
+fec_edda_secrets:
+  jasypt_password: "{{ vault_fec_jasypt_password }}"
+  db_url: "{{ vault_fec_db_url }}"
+  db_pass: "{{ vault_fec_db_pass }}"
+  jwt_secret: "{{ vault_fec_jwt_secret }}"
+  keystore_password: "{{ vault_fec_keystore_password }}"
+  ws_keystore_password: "{{ vault_fec_ws_keystore_password }}"
+  truststore_password: "{{ vault_fec_truststore_password }}"
+  mac_key_a: "{{ vault_fec_mac_key_a }}"
+  mac_key_b: "{{ vault_fec_mac_key_b }}"
+  mac_key_c: "{{ vault_fec_mac_key_c }}"

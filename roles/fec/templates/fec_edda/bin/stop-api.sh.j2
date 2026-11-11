@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+################################################################################
+# FEC EDDA API 停止腳本
+#
+# 用途：優雅關閉 fec-edda-api 應用程式
+# 使用方式：
+#   ./stop-api.sh
+################################################################################
+
+set -euo pipefail
+
+RUN_BASE="{{ fec_edda_dir }}"
+PID_FILE="${RUN_BASE}/fec-edda-api.pid"
+
+echo "====================================================================="
+echo "停止 FEC EDDA API"
+echo "====================================================================="
+
+if [[ ! -f "${PID_FILE}" ]]; then
+    echo "PID 檔案不存在: ${PID_FILE}"
+    echo "嘗試透過程序名稱搜尋..."
+    PID=$(pgrep -f "fec-edda-api" 2>/dev/null | head -1 || true)
+    if [[ -z "${PID}" ]]; then
+        echo "找不到執行中的 fec-edda-api 程序"
+        exit 0
+    fi
+else
+    PID=$(cat "${PID_FILE}")
+fi
+
+if ! kill -0 "${PID}" 2>/dev/null; then
+    echo "程序 ${PID} 不存在或已停止"
+    rm -f "${PID_FILE}"
+    exit 0
+fi
+
+echo "正在優雅關閉程序 PID: ${PID}..."
+kill -TERM "${PID}"
+
+# 等待程序結束（最多 30 秒）
+TIMEOUT=30
+ELAPSED=0
+while kill -0 "${PID}" 2>/dev/null; do
+    if [[ ${ELAPSED} -ge ${TIMEOUT} ]]; then
+        echo "超過 ${TIMEOUT} 秒，強制終止程序..."
+        kill -KILL "${PID}" 2>/dev/null || true
+        break
+    fi
+    sleep 1
+    ELAPSED=$((ELAPSED + 1))
+    echo -n "."
+done
+
+echo ""
+echo "fec-edda-api 已停止"
+rm -f "${PID_FILE}"

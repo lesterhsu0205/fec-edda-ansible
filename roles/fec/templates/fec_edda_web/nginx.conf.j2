@@ -1,0 +1,124 @@
+# root 啟動時讓 worker process 以 wasadmin 啟動
+user webadmin web;
+worker_processes auto;
+error_log /logs/linebank/fec-edda-web/nginx/error.log;
+pid       /opt/sw/nginx/nginx.pid;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+
+    access_log /logs/linebank/fec-edda-web/nginx/access.log;
+    include    /opt/sw/nginx/conf/mime.types;
+    default_type    application/octet-stream;
+    sendfile        on;
+
+    server {
+        listen 18543 ssl;
+        server_name localhost;
+
+        # SSL 憑證
+        ssl_certificate     /opt/sw/keystore/lbtw.ca.starlbtwsys.20230719.20321231.crt;
+        ssl_certificate_key /opt/sw/keystore/lbtw.ca.starlbtwsys.20230719.20321231.key;
+        ssl_protocols       TLSv1.2 TLSv1.3;
+        ssl_ciphers         HIGH:!aNULL:!MD5;
+        root /opt/sw/nginx/html;
+        index index.html;
+
+        # ============================================================
+        # 啟用靜態壓縮 (Static Compression)
+        # 這裡的設定是全域有效的，會應用到下面的所有 location
+        # ============================================================
+
+        # 1. 開啟 Gzip 靜態模組 (優先傳送 .gz 檔)
+        # 當瀏覽器請求 xxx.js 時，Nginx 會先檢查有沒有 xxx.js.gz
+        gzip on;
+        gzip_static on;
+        gzip_proxied any;
+        gzip_types text/plain
+                text/css
+                text/xml
+                text/javascript
+                application/json
+                application/javascript
+                application/x-javascript
+                application/xml
+                application/xml+rss
+                image/svg+xml;
+        gzip_vary on;
+
+        # 2. 開啟 Brotli 靜態模組 (優先傳送 .br 檔)
+        # 注意：這需要你的 Nginx 有安裝 ngx_brotli 模組
+        # 如果你的 Docker Image 是標準版 (nginx:alpine)，這行可能會導致啟動失敗
+        # 如果報錯，請暫時註解掉下面這行，或者改用 fholzer/nginx-brotli 等支援的 Image
+        # brotli_static on;
+
+        # ============================================================
+
+        # 後端 API 反向代理
+        # 前端 ApiService.ts baseURL 為 /fec/api（API_BASE_URL_FEC），打到本機後由 nginx 轉送至後端
+        # 前後端部署於同一台機器，直接走 loopback 避開 DNS 解析不一致與外部路由問題
+        location /fec/api/ {
+            proxy_pass https://127.0.0.1:18643;
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+
+            # 連線後端 TLS 設定（後端為自簽憑證，僅關閉驗證但仍走 TLS）
+            # SNI 仍送 hostname 讓後端對應到 *.lbtwsys.com 憑證
+            proxy_ssl_server_name on;
+            proxy_ssl_name        {{ fec_edda_web_config.proxy_ssl_name }};
+            proxy_ssl_protocols   TLSv1.2 TLSv1.3;
+            proxy_ssl_ciphers     HIGH:!aNULL:!MD5;
+            proxy_ssl_verify      off;
+
+            # 連線/讀寫逾時
+            proxy_connect_timeout 10s;
+            proxy_read_timeout    60s;
+            proxy_send_timeout    60s;
+        }
+
+        # LB 健康檢查：開關檔存在時回 503 讓 LB 摘除節點（由 healthcheck.sh -action disable/enable 切換）
+        location = /fec-edda/hc.html {
+            access_log off;
+            add_header Cache-Control "no-cache" always;
+            if (-f {{ fec_edda_web_hc_file }}) {
+                return 503;
+            }
+            default_type text/plain;
+            return 200 "OK\n";
+        }
+
+        # 處理沒有結尾斜線的情況（使用相對路徑）
+        # 必須保留 query string，否則 SSO 回跳的 ?ticket=... 會在補斜線 redirect 時被丟棄
+        location = /fec-edda {
+            return 302 /fec-edda/$is_args$args;
+        }
+
+        # 處理子路徑的 SPA 路由
+        # HTML 與 SPA fallback 一律不快取，確保覆蓋 dist/ 後使用者能立刻拿到新版 index.html
+        # 註：hashed 的 js/css 會先命中下面的 regex location，走長快取，不會進來這裡
+        location /fec-edda/ {
+            try_files $uri $uri/ /fec-edda/index.html;
+            add_header Cache-Control "no-cache" always;
+            etag on;
+        }
+
+        # runtime 環境設定：部署時由 ansible playbook patch 對應環境的 env.js，換了要立即生效，禁止快取
+        # 必須置於下方 hashed 資產 regex 之前；nginx location = 精確匹配優先於 regex，躲開 immutable 長快取
+        location = /fec-edda/env.js {
+            add_header Cache-Control "no-cache" always;
+            etag on;
+        }
+
+        # 靜態資源快取 (Vite 產出的檔名帶 hash，覆蓋時檔名會變，可安全地長快取)
+        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+        }
+    }
+}

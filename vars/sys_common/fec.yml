@@ -1,0 +1,135 @@
+# =========== fec system variables ===========
+dept_code: "bs011"
+system_code: "fec"
+gv_env_type: "linux"
+
+cd_account: "lbadm"
+
+fec_ap_artifactid: "bs011.fec.assembly"
+
+timestamp: "{{ ansible_date_time.iso8601_basic_short }}"
+
+fec_ap_version: "{{ fec_ap_history | last }}"
+fec_ap_backup_version: "{{ fec_ap_version }}-{{ timestamp }}"
+fec_ap_rollback_version: "{{ fec_ap_version }}-{{ timestamp }}"
+
+# N + 1
+keep_previous: 3
+
+install_mode: "{{ mode_normal }}"
+
+mode_normal: "normal"
+mode_minimal_downtime: "minimal_downtime"
+mode_patch: "patch"
+mode_grayrelease: "grayrelease"
+
+lb_mount: "mount"
+lb_unmount: "unmount"
+
+# golden image 解壓目錄（zip 內含 fec-edda/、fec-edda-web/ 兩個頂層目錄）
+fec_sw_dir: "{{ gv_sw_dir }}/linebank"
+fec_ap_backup_dir: "{{ gv_backup_dir }}/linebank"
+fec_ap_rollback_dir: "{{ gv_rollback_dir }}/linebank"
+fec_ap_logs_dir: "{{ gv_logs_dir }}/linebank"
+
+# ansible 產生的維運腳本（healthcheck.sh）與 LB 健康檢查開關檔目錄
+fec_scripts_dir: "{{ fec_sw_dir }}/scripts"
+fec_hc_dir: "{{ fec_sw_dir }}/hc"
+
+# 機密檔變數前綴（STG / UAT / PRD / DR），對應 fec-edda-secrets.<env>.env
+fec_secret_prefix: "{{ gv_env_name | upper }}"
+
+# nginx（主機預裝於 /opt/sw/nginx）
+nginx_dir: "{{ gv_sw_dir }}/nginx"
+nginx_conf_dir: "{{ nginx_dir }}/conf"
+nginx_html_dir: "{{ nginx_dir }}/html"
+
+# =========== os-account  ===========
+fecadmin:
+  user: fecadmin
+  user_id: 4022
+  group: fec
+  group_id: 422
+  user_home: "/home/fecadmin"
+  nofile: 65535
+  nproc: 65535
+
+webadmin:
+  user: webadmin
+  user_id: 1001
+  group: web
+  group_id: 101
+  user_home: "/home/webadmin"
+  nofile: 65535
+  nproc: 65535
+
+keystore:
+  user: keystore
+  user_id: 5001
+  group: key
+  group_id: 501
+  user_home: "/home/keystore"
+
+user_group:
+  - name: fecadmin
+    groups: fec
+  - name: webadmin
+    groups: web
+
+# =========== Package（golden image 內的頂層目錄）===========
+fec_edda: "fec_edda"
+fec_edda_web: "fec_edda_web"
+
+package_list:
+  - "{{ fec_edda }}"
+  - "{{ fec_edda_web }}"
+
+fec_edda_dir: "{{ fec_sw_dir }}/fec-edda"
+fec_edda_web_dir: "{{ fec_sw_dir }}/fec-edda-web"
+
+fec_edda_owner: "{{ fecadmin }}"
+fec_edda_web_owner: "{{ webadmin }}"
+
+# Backup path
+fec_edda_backup_dir: "{{ fec_ap_backup_dir }}/fec-edda"
+fec_edda_web_backup_dir: "{{ fec_ap_backup_dir }}/fec-edda-web"
+
+fec_edda_rollback_dir: "{{ fec_ap_rollback_dir }}/fec-edda"
+fec_edda_web_rollback_dir: "{{ fec_ap_rollback_dir }}/fec-edda-web"
+
+fec_edda_log_dir: "{{ fec_ap_logs_dir }}/fec-edda"
+fec_edda_web_log_dir: "{{ fec_ap_logs_dir }}/fec-edda-web/nginx"
+
+# =========== Module（systemd 服務單位）===========
+fec_edda_api: "fec_edda_api"
+fec_edda_txn: "fec_edda_txn"
+fec_edda_batch: "fec_edda_batch"
+fec_edda_web_app: "fec_edda_web"
+
+module_list:
+  - "{{ fec_edda_api | lower }}"
+  - "{{ fec_edda_txn | lower }}"
+  - "{{ fec_edda_batch | lower }}"
+  - "{{ fec_edda_web_app | lower }}"
+
+fec_edda_api_port: 18643
+fec_edda_txn_port: 18443
+fec_edda_batch_port: 18743
+fec_edda_web_port: 18543
+
+fec_edda_api_service: "line.fec-edda-api.service"
+fec_edda_txn_service: "line.fec-edda-txn.service"
+fec_edda_batch_service: "line.fec-edda-batch.service"
+fec_edda_web_service: "line.web.fec-edda-web.service"
+
+# LB 健康檢查開關檔（存在 = 摘除）
+fec_edda_api_hc_file: "{{ fec_hc_dir }}/fec-edda-api.disabled"
+fec_edda_txn_hc_file: "{{ fec_hc_dir }}/fec-edda-txn.disabled"
+fec_edda_batch_hc_file: "{{ fec_hc_dir }}/fec-edda-batch.disabled"
+fec_edda_web_hc_file: "{{ fec_hc_dir }}/fec-edda-web.disabled"
+
+# LB 健康檢查端點
+fec_edda_api_hc_url: "https://{{ host_name }}.{{ common_config.fec_domain }}:{{ fec_edda_api_port }}/actuator/health"
+fec_edda_txn_hc_url: "https://{{ host_name }}.{{ common_config.fec_domain }}:{{ fec_edda_txn_port }}/actuator/health"
+fec_edda_batch_hc_url: "http://{{ host_name }}.{{ common_config.fec_domain }}:{{ fec_edda_batch_port }}/actuator/health"
+fec_edda_web_hc_url: "https://{{ host_name }}.{{ common_config.fec_domain }}:{{ fec_edda_web_port }}/fec-edda/hc.html"

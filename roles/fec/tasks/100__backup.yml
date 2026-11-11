@@ -1,0 +1,52 @@
+---
+
+- tags:
+  - backup
+  block:
+    - name: Backup fec-edda & fec-edda-web
+      include_role:
+        name: lbtw.cid_utils.commons
+        tasks_from: "backup_mv.yml"
+      vars:
+        backup_src: "{{ lookup('vars', package + '_dir') }}"
+        backup_dest: "{{ lookup('vars', package + '_backup_dir') }}"
+        backup_dest_permission: "755"
+        backup_name: "{{ package }}_{{ fec_ap_backup_version }}"
+        backup_user: "{{ lookup('vars', package + '_owner') }}"
+      loop_control:
+        loop_var: package
+      loop: "{{ package_list }}"
+
+    - name: Backup nginx.conf
+      include_role:
+        name: lbtw.cid_utils.commons
+        tasks_from: "backup_mv_file.yml"
+      vars:
+        backup_src: "{{ nginx_conf_dir }}/nginx.conf"
+        backup_dest: "{{ fec_ap_backup_dir }}/nginx"
+        backup_dest_permission: "755"
+        backup_name: "nginx_{{ fec_ap_backup_version }}"
+        backup_user: "{{ webadmin }}"
+      when: fec_edda_web_installation[host_name]|default(false)|bool == true
+
+    - name: Initialize list for scripts
+      set_fact:
+        others:
+          - "scripts"
+
+    - name: Backup others
+      include_role:
+        name: lbtw.cid_utils.commons
+        tasks_from: "backup_mv.yml"
+      vars:
+        backup_src: "{{ fec_sw_dir }}/{{ other }}"
+        backup_dest: "{{ fec_ap_backup_dir }}/{{ other }}"
+        backup_dest_permission: "755"
+        backup_name: "{{ other }}_{{ fec_ap_backup_version }}"
+        backup_user: "{{ fecadmin }}"
+      loop_control:
+        loop_var: other
+      loop: "{{ others }}"
+
+  # fec-edda / fec-edda-web 擁有者不同，以 root 搬移
+  become: yes

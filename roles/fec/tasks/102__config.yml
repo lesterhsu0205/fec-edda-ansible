@@ -1,0 +1,19 @@
+---
+
+- tags:
+  - config
+  block:
+    - name: Replace scripts
+      include_tasks: "base/replace_scripts.yml"
+      vars:
+        target_dir: "{{ fec_scripts_dir }}"
+
+    - name: Replace {{ package }} setting
+      include_tasks: "base/replace_config_{{ package }}.yml"
+      vars:
+        target_dir: "{{ lookup('vars', package + '_dir') }}"
+      loop_control:
+        loop_var: package
+      loop: "{{ package_list }}"
+
+  become: yes

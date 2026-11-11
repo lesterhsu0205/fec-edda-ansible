@@ -1,0 +1,4 @@
+---
+- name: Rollback
+  include_tasks: 100__rollback.yml
+  tags: always

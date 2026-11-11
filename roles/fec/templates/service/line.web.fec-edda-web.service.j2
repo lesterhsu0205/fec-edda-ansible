@@ -1,0 +1,18 @@
+[Unit]
+Description=FEC EDDA Web Application (Port 18543)
+
+After=syslog.target network.target
+
+
+[Service]
+Type=forking
+Restart=always
+User={{ webadmin.user }}
+Group={{ webadmin.group }}
+LimitNOFILE={{ webadmin.nofile }}
+LimitNPROC={{ webadmin.nproc }}
+ExecStart=nginx -p /opt/sw/nginx -c /opt/sw/nginx/conf/nginx.conf -e /logs/linebank/fec-edda-web/nginx/error.log
+ExecStop=nginx -p /opt/sw/nginx -c /opt/sw/nginx/conf/nginx.conf -e /logs/linebank/fec-edda-web/nginx/error.log -s quit
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,36 @@
+[Unit]
+Description=FEC EDDA TXN Service (Transaction API + SOAP WebService, Port 18443/5043)
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+Type=forking
+User={{ fecadmin.user }}
+Group={{ fecadmin.group }}
+WorkingDirectory={{ fec_edda_dir }}
+
+# 環境身分由 {{ fec_edda_dir }}/config/fec-edda-secrets.<env>.env 的 DEPLOY_ENV 決定
+# 本 unit 檔三個環境（stg/uat/prd/dr）完全相同，毋需逐台修改
+ExecStart={{ fec_edda_dir }}/bin/start-txn.sh
+ExecStop={{ fec_edda_dir }}/bin/stop-txn.sh
+
+PIDFile={{ fec_edda_dir }}/fec-edda-txn.pid
+
+StandardOutput=append:{{ fec_edda_dir }}/txn.log
+StandardError=append:{{ fec_edda_dir }}/txn.log
+
+SuccessExitStatus=143
+Restart=on-failure
+RestartSec=15s
+
+TimeoutStartSec=120
+# 與 stop-txn.sh 的 TIMEOUT=30 對齊，加緩衝
+TimeoutStopSec=45
+
+LimitNOFILE=65536
+LimitNPROC=4096
+
+[Install]
+WantedBy=multi-user.target

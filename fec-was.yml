@@ -1,0 +1,16 @@
+---
+
+- hosts: "{{ host_name }}"
+  become: yes
+  vars_files:
+    - "vars/global/all.yml"
+    - "vars/sys_common/fec.yml"
+    - "vars/env/{{ site }}{{ env }}/{{ site }}{{ env }}-fec-was.yml"
+    - "vars/vault/vault_token.yml"
+    - "vars/vault/{{ site }}{{ env }}-fec-secrets.yml"
+    
+  roles:   
+    - name: Install fec
+      role: "fec"
+      when:
+        - restart_only|default(false)|bool == false

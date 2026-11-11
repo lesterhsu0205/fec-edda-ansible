@@ -1,0 +1,21 @@
+---
+
+- name: Tasks before installation
+  include_tasks: 000__pretasks.yml
+  tags: always
+
+- name: Backup 
+  include_tasks: 100__backup.yml
+  tags: always
+
+- name: Deploy 
+  include_tasks: 101__deploy.yml
+  tags: always
+
+- name: Config 
+  include_tasks: 102__config.yml
+  tags: always
+
+- name: Tasks after installation 
+  include_tasks: 200__extra_tasks.yml
+  tags: always

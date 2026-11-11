@@ -1,0 +1,24 @@
+---
+#################################################################
+# Parameters
+#################################################################
+# target_dir: Path of scripts
+# fecadmin : fecadmin info
+
+- name: Replace scripts
+  block:
+    - name: Initialize script_list
+      set_fact:
+        script_list:
+          - "healthcheck.sh"
+
+    - name: Generate scripts
+      template:
+        src: "scripts/{{ script }}.j2"
+        dest: "{{ target_dir }}/{{ script }}"
+        owner: "{{ fecadmin.user }}"
+        group: "{{ fecadmin.group }}"
+        mode: 0754
+      loop_control:
+        loop_var: script
+      loop: "{{ script_list }}"

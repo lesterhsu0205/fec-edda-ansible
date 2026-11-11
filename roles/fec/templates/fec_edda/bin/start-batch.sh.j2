@@ -1,0 +1,276 @@
+#!/usr/bin/env bash
+################################################################################
+# FEC EDDA Batch 啟動腳本
+#
+# 用途：啟動 fec-edda-batch 排程服務
+# 使用方式：
+#   ./start-batch.sh          # 部署主機（環境由機密檔 DEPLOY_ENV 決定：stg|uat|prd|dr）
+#   本機開發請改用 IDEA（讀取 ~/.fec-edda/local-dev.properties），不經本腳本
+#
+# 前置條件：
+#   1. JDK 21 已安裝並可用
+#   2. 應用程式 JAR 檔案已準備好
+################################################################################
+
+set -euo pipefail
+
+# ============================================================================
+# JDK 設定
+# ============================================================================
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+RUN_BASE="{{ fec_edda_dir }}"
+PID_FILE="${RUN_BASE}/fec-edda-batch.pid"
+
+# JDK 路徑搜尋列表
+JDK_PATHS=(
+    "${JAVA_HOME:-}"
+    "{{ fec_edda_dir }}/jdk/java-21-openjdk-21.0.9.0.10-1.portable.jdk.x86_64"
+    "/usr/lib/jvm/java-21-openjdk"
+    "/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home"
+)
+
+# ============================================================================
+# 函數定義
+# ============================================================================
+
+find_jdk() {
+    echo "正在搜尋 JDK 21..."
+    for JDK_PATH in "${JDK_PATHS[@]}"; do
+        if [ -n "${JDK_PATH}" ] && [ -x "${JDK_PATH}/bin/java" ]; then
+            JAVA_VERSION=$("${JDK_PATH}/bin/java" -version 2>&1 | awk -F '"' '/version/ {print $2}' | cut -d'.' -f1)
+            if [ "${JAVA_VERSION}" = "21" ]; then
+                JAVA_CMD="${JDK_PATH}/bin/java"
+                echo "找到 JDK 21: ${JDK_PATH}"
+                return 0
+            fi
+        fi
+    done
+
+    if command -v java &> /dev/null; then
+        JAVA_VERSION=$(java -version 2>&1 | awk -F '"' '/version/ {print $2}' | cut -d'.' -f1)
+        if [ "${JAVA_VERSION}" = "21" ]; then
+            JAVA_CMD="java"
+            echo "使用系統 Java: $(which java)"
+            return 0
+        fi
+    fi
+
+    echo "錯誤: 找不到 JDK 21"
+    exit 1
+}
+
+show_usage() {
+    cat << EOF
+使用方式: $0 [ENVIRONMENT]
+
+參數:
+  ENVIRONMENT    可省略。本腳本僅供部署環境，環境由機密檔 DEPLOY_ENV 決定（stg|uat|prd|dr），
+                 帶參數時必須與 DEPLOY_ENV 相符
+
+範例:
+  $0         # 部署主機標準用法（環境由機密檔 DEPLOY_ENV 決定）
+  （本機開發請改用 IDEA，讀取 ~/.fec-edda/local-dev.properties）
+
+EOF
+    exit 1
+}
+
+check_file() {
+    local file=$1
+    local description=$2
+    if [[ ! -f "$file" ]]; then
+        echo "錯誤: ${description} 不存在: ${file}"
+        exit 1
+    fi
+    echo "檢查通過: ${description}"
+}
+
+check_already_running() {
+    if [[ -f "${PID_FILE}" ]]; then
+        local pid
+        pid=$(cat "${PID_FILE}")
+        if kill -0 "${pid}" 2>/dev/null; then
+            echo "錯誤: fec-edda-batch 已在執行中 (PID: ${pid})，請先執行 stop-batch.sh 停止服務"
+            exit 1
+        else
+            echo "警告: 發現過期的 PID 檔案 (PID: ${pid} 已不存在)，清除後繼續啟動"
+            rm -f "${PID_FILE}"
+        fi
+    fi
+}
+
+# ============================================================================
+# 主程式
+# ============================================================================
+
+# 環境參數可省略：部署主機由機密檔的 DEPLOY_ENV 決定環境身分
+ARG_ENV="${1:-}"
+
+# ============================================================================
+# 部署主機機密檔自動載入（含 DEPLOY_ENV 環境身分與該環境的 STG_*/UAT_*/PRD_*/DR_* 機密值）
+# 命名：fec-edda-secrets.<env>.env（如 fec-edda-secrets.stg.env），便於 CD 整檔替換
+# 範本：config/fec-edda-secrets.env.example（chmod 600，勿入版本庫）
+# 每台主機只放單一環境的機密檔；dev／本機開發不需要此檔
+# ============================================================================
+
+SECRETS_DIR="{{ fec_edda_dir }}/config"
+
+# 偵測舊版命名，要求改名（避免靜默忽略造成誤判）
+if [[ -f "${SECRETS_DIR}/fec-edda-secrets.env" ]]; then
+    echo "錯誤: 偵測到舊版機密檔命名 ${SECRETS_DIR}/fec-edda-secrets.env"
+    echo "      請改名為 fec-edda-secrets.<env>.env（如 fec-edda-secrets.stg.env）"
+    exit 1
+fi
+
+shopt -s nullglob
+SECRETS_CANDIDATES=("${SECRETS_DIR}"/fec-edda-secrets.*.env)
+shopt -u nullglob
+
+if (( {% raw %}${#SECRETS_CANDIDATES[@]}{% endraw %} > 1 )); then
+    echo "錯誤: 發現多個環境機密檔（一台主機只應放單一環境）："
+    printf '      %s\n' "${SECRETS_CANDIDATES[@]}"
+    exit 1
+fi
+
+SECRETS_FILE="${SECRETS_CANDIDATES[0]:-}"
+if [[ -n "${SECRETS_FILE}" ]]; then
+    set -a
+    # shellcheck disable=SC1090
+    source "${SECRETS_FILE}"
+    set +a
+    echo "已載入機密檔: ${SECRETS_FILE}"
+fi
+
+# ============================================================================
+# 決定環境（部署專用）：
+#   start-*.sh 僅供部署環境（stg|uat|prd|dr），環境由機密檔 DEPLOY_ENV 決定
+#   本機開發請用 IDEA（讀取 ~/.fec-edda/local-dev.properties），不經本腳本
+# ============================================================================
+
+if [[ -z "${SECRETS_FILE}" ]]; then
+    echo "錯誤: 找不到環境機密檔 ${SECRETS_DIR}/fec-edda-secrets.<env>.env"
+    echo "      部署主機：請由範本 config/fec-edda-secrets.env.example 建立機密檔（含 DEPLOY_ENV）"
+    echo "      本機開發：請改用 IDEA（讀取 ~/.fec-edda/local-dev.properties），毋需本腳本"
+    exit 1
+fi
+
+if [[ -z "${DEPLOY_ENV:-}" ]]; then
+    echo "錯誤: 機密檔未宣告 DEPLOY_ENV（stg|uat|prd|dr），無法決定環境"
+    exit 1
+fi
+
+# 檔名中的環境須與檔內 DEPLOY_ENV 一致（防止 CD 替換到錯誤環境的檔案）
+FILE_ENV="$(basename "${SECRETS_FILE}")"
+FILE_ENV="${FILE_ENV#fec-edda-secrets.}"
+FILE_ENV="${FILE_ENV%.env}"
+if [[ "${FILE_ENV}" != "${DEPLOY_ENV}" ]]; then
+    echo "錯誤: 機密檔檔名環境（${FILE_ENV}）與檔內宣告（DEPLOY_ENV=${DEPLOY_ENV}）不符，拒絕啟動"
+    exit 1
+fi
+
+if [[ -n "${ARG_ENV}" && "${ARG_ENV}" != "${DEPLOY_ENV}" ]]; then
+    echo "錯誤: 參數環境（${ARG_ENV}）與本機機密檔宣告（DEPLOY_ENV=${DEPLOY_ENV}）不符，拒絕啟動"
+    exit 1
+fi
+
+ENVIRONMENT="${DEPLOY_ENV}"
+
+case $ENVIRONMENT in
+    stg|uat|prd|dr)
+        echo "啟動 Batch 環境: ${ENVIRONMENT}"
+        ;;
+    *)
+        echo "錯誤: 不支援的環境名稱: ${ENVIRONMENT}（機密檔 DEPLOY_ENV 設定錯誤）"
+        show_usage
+        ;;
+esac
+
+# ============================================================================
+# 環境特定配置
+# ============================================================================
+
+case $ENVIRONMENT in
+    {{ gv_env_name }})
+        # LOG_PATH
+        export LOG_PATH="{{ fec_edda_log_dir }}"
+
+        # DB（由機密檔 fec-edda-secrets.<env>.env 提供）
+        export JASYPT_PASSWORD="${{ '{' ~ fec_secret_prefix }}_JASYPT_PASSWORD}"
+        export DB_URL="${{ '{' ~ fec_secret_prefix }}_DB_URL}"
+        export DB_PASS="${{ '{' ~ fec_secret_prefix }}_DB_PASS}"
+        export DB_NAME="{{ common_config.db_name }}"
+
+        # Batch 設定
+        export BATCH_SERVER_PORT={{ fec_edda_batch_port }}
+        export BATCH_INSTANCE_ID="{{ fec_edda_batch_config.instance_id }}"
+
+        # LB 健康檢查開關檔（存在時 /actuator/health 回 OUT_OF_SERVICE，由 healthcheck.sh 切換）
+        export FEC_HC_DISABLED_FILE="{{ fec_edda_batch_hc_file }}"
+
+        # 日誌等級
+        # 框架套件；需除錯時單獨指定，如 LOGGING_LEVEL_ORG_APACHE_CAMEL=DEBUG
+        export LOGGING_LEVEL_ROOT={{ common_config.log_level_root }}
+        # com.linebank：DEBUG 進 ERROR_BUFFER 緩衝，僅 ERROR 時落地（設 INFO 可完全關閉）
+        export LOG_LEVEL_APP={{ common_config.log_level_app }}
+        # 環形緩衝每執行緒保留筆數
+        export LOG_BUFFER_MAX_EVENTS={{ common_config.log_buffer_max_events }}
+
+        # STDOUT 寫入 nohup batch.log，停用 logback STDOUT 避免重複
+        export LOG_STDOUT_LEVEL=OFF
+
+        APP_JAR="$(ls {{ fec_edda_dir }}/lib/bs011.fec.edda.batch*.jar 2>/dev/null | head -n 1)"
+        JVM_OPTS="{{ fec_edda_batch_config.jvm_opts }}"
+        ;;
+esac
+
+# ============================================================================
+# 啟動前檢查
+# ============================================================================
+
+echo ""
+echo "====================================================================="
+echo "FEC EDDA Batch 啟動前檢查 - 環境: ${ENVIRONMENT}"
+echo "====================================================================="
+echo ""
+
+check_already_running
+find_jdk
+echo ""
+
+check_file "$APP_JAR" "Batch JAR 檔案"
+
+# ============================================================================
+# 啟動 Batch
+# ============================================================================
+
+echo ""
+echo "====================================================================="
+echo "啟動 FEC EDDA Batch"
+echo "====================================================================="
+echo ""
+echo "環境: ${ENVIRONMENT}"
+echo "Java 指令: ${JAVA_CMD}"
+echo "JVM 參數: ${JVM_OPTS}"
+echo ""
+
+export SPRING_PROFILES_ACTIVE=$ENVIRONMENT
+
+mkdir -p "${RUN_BASE}"
+
+nohup ${JAVA_CMD} ${JVM_OPTS} -Dspring.profiles.active=${SPRING_PROFILES_ACTIVE} -jar ${APP_JAR} > "${RUN_BASE}/batch.log" 2>&1 &
+PID=$!
+echo $PID > "${PID_FILE}"
+echo "Batch 已啟動，PID: ${PID}"
+echo "PID 檔案: ${PID_FILE}"
+
+echo ""
+echo "====================================================================="
+echo "環境變數設定摘要"
+echo "====================================================================="
+echo "ENVIRONMENT: ${ENVIRONMENT}"
+echo "SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}"
+echo "BATCH_SERVER_PORT: ${BATCH_SERVER_PORT}"
+echo "BATCH_INSTANCE_ID: ${BATCH_INSTANCE_ID}"
+echo "====================================================================="

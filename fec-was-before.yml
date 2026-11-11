@@ -1,0 +1,20 @@
+---
+
+- hosts: "{{ host_name }}"
+  become: yes
+  vars_files:
+    - "vars/global/all.yml"
+    - "vars/sys_common/fec.yml"
+    - "vars/env/{{ site }}{{ env }}/{{ site }}{{ env }}-fec-was.yml"
+  vars:
+    lbaction: "unmount"  
+  
+  roles:
+    - name: Load balancer
+      role: "loadbalancer"
+      
+    - name: Control systemd
+      role: "systemd"
+      vars:
+        action: "stopped"
+      when: "systemd_control|default(false)|bool == true"    

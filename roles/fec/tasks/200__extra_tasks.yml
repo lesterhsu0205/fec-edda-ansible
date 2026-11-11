@@ -1,0 +1,23 @@
+---
+
+- tags:
+  - extra-tasks
+  block:
+    - name: Copy service files
+      template:
+        src: "service/{{ lookup('vars', module + '_service') }}.j2"
+        dest: "/usr/lib/systemd/system/{{ lookup('vars', module + '_service') }}"
+        owner: "root"
+        group: "root"
+        mode: 0644
+      loop_control:
+        loop_var: module
+      loop: "{{ module_list }}"  
+      when: lookup('vars', module + '_installation')[host_name]|default(false)|bool == true  
+    
+    - name: Daemon_reload services
+      systemd:
+        daemon_reload : yes
+      when: (fec_edda_api_installation[host_name]|default(false)|bool == true) or (fec_edda_txn_installation[host_name]|default(false)|bool == true) or (fec_edda_batch_installation[host_name]|default(false)|bool == true) or (fec_edda_web_installation[host_name]|default(false)|bool == true)
+    
+  become: yes

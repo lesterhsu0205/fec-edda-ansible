@@ -1,0 +1,32 @@
+---
+
+- tags:
+  - deploy
+  block:
+    - name: Download and deploy golden image
+      include_role:
+        name: lbtw.cid_utils.commons
+        tasks_from: "download_deploy.yml"
+      vars:
+        gd_image_filename: "{{ fec_ap_artifactid }}-{{ fec_ap_version }}.zip"
+        gd_image_url: "{{ gv_repo_url }}/com/line/bank/{{ fec_ap_artifactid }}/{{ fec_ap_version }}/{{ gd_image_filename }}"
+        gd_image_path: "{{ fec_sw_dir }}/{{ gd_image_filename }}"
+        gd_image_dest_path: "{{ fec_sw_dir }}"
+
+    - name: "Remove golden image zip"
+      file:
+        path: "{{ fec_sw_dir }}/{{ fec_ap_artifactid }}-{{ fec_ap_version }}.zip"
+        state: absent
+
+    - name: Change owner of fec-edda & fec-edda-web
+      file:
+        path: "{{ lookup('vars', package + '_dir') }}"
+        owner: "{{ lookup('vars', package + '_owner').user }}"
+        group: "{{ lookup('vars', package + '_owner').group }}"
+        recurse: yes
+      loop_control:
+        loop_var: package
+      loop: "{{ package_list }}"
+
+  # zip 同時含 fec-edda、fec-edda-web，解壓後再依目錄 chown
+  become: yes

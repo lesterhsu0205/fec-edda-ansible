@@ -1,0 +1,44 @@
+---
+- tags:
+  - always
+  block:  
+    - name: Check service status before proceeding
+      shell: "systemctl is-active {{ lookup('vars', module + '_service') }}"
+      register: service_status
+      changed_when: false
+      failed_when: false
+      loop_control:
+        loop_var: module
+      loop: "{{ module_list }}"
+      when: lookup('vars', module + '_installation')[host_name]|default(false)|bool == true
+    
+    - name: Collect active modules
+      set_fact:
+        active_modules: "{{ service_status.results | selectattr('stdout', 'defined') | selectattr('stdout', 'equalto', 'active') | map(attribute='module') | list }}"
+    
+    - name: Disable hc file
+      shell: "sudo {{ fec_scripts_dir }}/healthcheck.sh -action disable"
+      when: 
+        - active_modules | length > 0
+        - lbaction == "unmount"
+        
+    - name: Enable hc file
+      shell: "sudo {{ fec_scripts_dir }}/healthcheck.sh -action enable"
+      when: 
+        - active_modules | length > 0
+        - lbaction == "mount"
+    
+    - name: Pause 1 mins
+      pause:
+        minutes: 1
+    
+    - name: Verify hc 
+      include_role:
+        name: lbtw.cid_utils.commons
+        tasks_from: "verify_hc.yml"
+      vars:
+        hc_url: "{{ lookup('vars', module + '_hc_url') }}"
+        expected_code: "{{ 200 if lbaction == 'mount' else 503 }}"
+      loop_control:
+        loop_var: module
+      loop: "{{ active_modules }}"

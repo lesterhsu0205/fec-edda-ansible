@@ -1,0 +1,49 @@
+---
+#################################################################
+# Parameters
+#################################################################
+# target_dir: Path of fec-edda
+# fecadmin : fecadmin info
+
+- name: Replace settings
+  block:
+    - name: Check secrets are provided
+      assert:
+        that:
+          - fec_edda_secrets[secret] | default('') | string | length > 0
+        fail_msg: "fec_edda_secrets.{{ secret }} is empty, please fill vars/vault/{{ site }}{{ env }}-fec-secrets.yml"
+        quiet: true
+      loop_control:
+        loop_var: secret
+      loop: "{{ fec_edda_secrets.keys() | list }}"
+      no_log: true
+  
+    - name: Initialize script_list 
+      set_fact:
+        script_list: 
+          - "start-api.sh"
+          - "start-txn.sh"
+          - "start-batch.sh"
+          - "stop-api.sh"
+          - "stop-txn.sh"
+          - "stop-batch.sh"
+  
+    - name: Generate bin scripts
+      template:
+        src: "fec_edda/bin/{{ script }}.j2"
+        dest: "{{ target_dir }}/bin/{{ script }}"
+        owner: "{{ fecadmin.user }}"
+        group: "{{ fecadmin.group }}"
+        mode: 0754
+      loop_control:
+        loop_var: script  
+      loop: "{{ script_list }}"
+    
+    - name: Generate fec-edda-secrets.{{ gv_env_name }}.env
+      template:
+        src: "fec_edda/config/fec-edda-secrets.env.j2"
+        dest: "{{ target_dir }}/config/fec-edda-secrets.{{ gv_env_name }}.env"
+        owner: "{{ fecadmin.user }}"
+        group: "{{ fecadmin.group }}"
+        mode: 0600
+      no_log: true

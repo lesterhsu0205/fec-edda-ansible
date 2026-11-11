@@ -1,0 +1,78 @@
+# =========== fec environment variables ===========
+gv_env_name: "uat"
+
+# Setup for manual execute command, or cid in jira flow will bring ap_version from ci ticket
+fec_ap_history:
+  - "0.0.1"
+
+################################################################################
+#  Installation flag                                                           #
+################################################################################
+fec_edda_api_installation:
+  tvuat-fec-was01: true
+  tvuat-fec-was02: true
+
+fec_edda_txn_installation:
+  tvuat-fec-was01: true
+  tvuat-fec-was02: true
+
+# batch 無分散鎖，同環境僅能一台啟用
+fec_edda_batch_installation:
+  tvuat-fec-was01: true
+
+fec_edda_web_installation:
+  tvuat-fec-was01: true
+  tvuat-fec-was02: true
+
+common_config:
+  fec_domain: "lbtwsys.com"
+  db_name: "FEC_APP"
+  log_level_root: "INFO"
+  log_level_app: "DEBUG"
+  log_buffer_max_events: 128
+
+fec_edda_api_config:
+  swagger_enabled: false
+  cert_base_dir: "/opt/sw/linebank/keystore"
+  ssl_keystore_file: "linebank-keystore-uat.p12"
+  line_sso_enabled: true
+  # 空字串 = 沿用 application.yml 預設（測試環境 SSO）
+  line_sso_cas_server_url_prefix: ""
+  txn_base_url: "https://{{ host_name }}.{{ common_config.fec_domain }}:{{ fec_edda_txn_port }}"
+  jvm_opts: "-Xms1g -Xmx2g -XX:+UseG1GC"
+
+fec_edda_txn_config:
+  cert_base_dir: "/opt/sw/keystore"
+  ssl_keystore_file: "linebank-keystore-uat.p12"
+  ws_ssl_keystore_file: "linebank-keystore-uat.p12"
+  ws_ssl_truststore_file: "twnch-truststore-uat.jks"
+  edda_mode: "real"
+  twnch_notice_sys_msg_bc_wsdl: "https://eddatest.twnch.org.tw/EDDA_WebService/eDDA_NoticeSysMsg_BC?wsdl"
+  jvm_opts: "-Xms1g -Xmx2g -XX:+UseG1GC"
+
+fec_edda_batch_config:
+  instance_id: "batch-uat-01"
+  jvm_opts: "-Xms512m -Xmx1g -XX:+UseG1GC"
+
+fec_edda_web_config:
+  proxy_ssl_name: "{{ host_name }}.{{ common_config.fec_domain }}"
+  api_base_url: "/fec/api"
+  app_base_path: "/fec-edda"
+  debug: false
+  mock_functions: false
+  sso_enabled: true
+  sso_login_url: "https://sso.lbtwsys.com:8443/cas/login"
+  sso_logout_url: "https://sso.lbtwsys.com:8443/cas/logout"
+
+# 機密值一律引用 vars/vault/{{ site }}{{ env }}-fec-secrets.yml
+fec_edda_secrets:
+  jasypt_password: "{{ vault_fec_jasypt_password }}"
+  db_url: "{{ vault_fec_db_url }}"
+  db_pass: "{{ vault_fec_db_pass }}"
+  jwt_secret: "{{ vault_fec_jwt_secret }}"
+  keystore_password: "{{ vault_fec_keystore_password }}"
+  ws_keystore_password: "{{ vault_fec_ws_keystore_password }}"
+  truststore_password: "{{ vault_fec_truststore_password }}"
+  mac_key_a: "{{ vault_fec_mac_key_a }}"
+  mac_key_b: "{{ vault_fec_mac_key_b }}"
+  mac_key_c: "{{ vault_fec_mac_key_c }}"

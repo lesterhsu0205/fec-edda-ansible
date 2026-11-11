@@ -1,0 +1,63 @@
+#!/bin/bash
+
+# Help menu
+printHelp() {
+cat <<-HELP
+This script is used to disable / enable healthcheck, you need to provide the following arguments:
+1) Disable
+   Usage:  healthcheck.sh -action disable
+2) Enable
+   Usage:  healthcheck.sh -action enable
+HELP
+exit 0
+}
+
+ACTION=""
+
+# Parse Command Line Arguments
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --action|-action)
+      ACTION="$2"
+      ;;
+    --help|-help) printHelp;;
+    *)
+      echo " [Error] Invalid argument: $1 !!! "
+      exit 1
+  esac
+  shift
+  shift
+done
+
+# 開關檔存在時，該模組 health 端點回 503（api/txn/batch：/actuator/health；web：hc.html）
+hc_files=(
+{% for module in module_list %}
+{% if lookup('vars', module + '_installation')[host_name] | default(false) | bool %}
+  "{{ lookup('vars', module + '_hc_file') }}"
+{% endif %}
+{% endfor %}
+)
+
+case "$ACTION" in
+  disable)
+    # 暫停健康檢查（建立開關檔，LB 探測失敗後摘除節點）
+    echo "Disabling health check..."
+
+    for hc_file in "${hc_files[@]}"; do
+      touch "$hc_file" || { echo "Failed to disable health check: $hc_file"; exit 1; }
+      echo "Health check disabled: $hc_file"
+    done
+  ;;
+  enable)
+    # 啟用健康檢查（移除開關檔，LB 探測成功後掛回節點）
+    echo "Enabling health check..."
+
+    for hc_file in "${hc_files[@]}"; do
+      rm -f "$hc_file" || { echo "Failed to enable health check: $hc_file"; exit 1; }
+      echo "Health check restored: $hc_file"
+    done
+  ;;
+  *)
+    printHelp
+  ;;
+esac

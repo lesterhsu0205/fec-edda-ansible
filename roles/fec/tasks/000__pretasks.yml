@@ -1,0 +1,42 @@
+---
+
+- tags:
+  - pretasks
+  block:
+    - name: OS pretasks to create group and user
+      include_role:
+        name: lbtw.cid_utils.commons
+        tasks_from: "account.yml"
+      vars:
+        user_list:
+          - "{{ fecadmin }}"
+          - "{{ webadmin }}"
+          - "{{ keystore }}"
+
+    - name: pretask to create base & backup directory
+      include_role:
+        name: lbtw.cid_utils.commons
+        tasks_from: "create_directories.yml"
+      vars:
+        user: "{{ fecadmin }}"
+        permission: "755"
+        directory_list:
+          - "{{ fec_sw_dir }}"
+          - "{{ fec_ap_backup_dir }}"
+          - "{{ fec_scripts_dir }}"
+          - "{{ fec_hc_dir }}"
+
+    - name: pretask to create logs directory
+      include_role:
+        name: lbtw.cid_utils.commons
+        tasks_from: "create_directories.yml"
+      vars:
+        user: "{{ lookup('vars', package + '_owner') }}"
+        permission: "755"
+        directory_list:
+          - "{{ lookup('vars', package + '_log_dir') }}"
+      loop_control:
+        loop_var: package
+      loop: "{{ package_list }}"
+
+  become: yes

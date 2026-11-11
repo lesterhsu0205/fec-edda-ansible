@@ -1,0 +1,53 @@
+- tags:
+  - rollback
+  block:
+    - name: Rollback fec-edda & fec-edda-web
+      include_role:
+        name: lbtw.cid_utils.commons
+        tasks_from: "rollback_from_copy.yml"
+      vars:
+        rollback_src: "{{ lookup('vars', package + '_dir') }}"
+        rollback_dest: "{{ lookup('vars', package + '_rollback_dir') }}"
+        rollback_dest_permission: "755"
+        rollback_name: "{{ package }}_{{ fec_ap_rollback_version }}"
+        rollback_user: "{{ lookup('vars', package + '_owner') }}"
+        backup_path: "{{ lookup('vars', package + '_backup_dir') }}"
+      loop_control:
+        loop_var: package
+      loop: "{{ package_list }}"
+
+    - name: Rollback nginx.conf
+      include_role:
+        name: lbtw.cid_utils.commons
+        tasks_from: "rollback_from_copy.yml"
+      vars:
+        rollback_src: "{{ nginx_conf_dir }}/nginx.conf"
+        rollback_dest: "{{ fec_ap_rollback_dir }}/nginx"
+        rollback_dest_permission: "755"
+        rollback_name: "nginx_{{ fec_ap_rollback_version }}"
+        rollback_user: "{{ webadmin }}"
+        backup_path: "{{ fec_ap_backup_dir }}/nginx"
+      when: fec_edda_web_installation[host_name]|default(false)|bool == true
+
+    - name: Initialize list for scripts
+      set_fact:
+        others:
+          - "scripts"
+
+    - name: Rollback others
+      include_role:
+        name: lbtw.cid_utils.commons
+        tasks_from: "rollback_from_copy.yml"
+      vars:
+        rollback_src: "{{ fec_sw_dir }}/{{ other }}"
+        rollback_dest: "{{ fec_ap_rollback_dir }}/{{ other }}"
+        rollback_dest_permission: "755"
+        rollback_name: "{{ other }}_{{ fec_ap_rollback_version }}"
+        rollback_user: "{{ fecadmin }}"
+        backup_path: "{{ fec_ap_backup_dir }}/{{ other }}"
+      loop_control:
+        loop_var: other
+      loop: "{{ others }}"
+
+  # fec-edda / fec-edda-web 擁有者不同，以 root 還原
+  become: yes

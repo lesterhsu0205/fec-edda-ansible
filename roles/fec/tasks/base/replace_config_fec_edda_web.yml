@@ -1,0 +1,34 @@
+---
+#################################################################
+# Parameters
+#################################################################
+# target_dir: Path of fec-edda-web
+# webadmin : webadmin info
+
+- name: Replace settings
+  block:
+    - name: Generate env.js
+      template:
+        src: "fec_edda_web/env.js.j2"
+        dest: "{{ target_dir }}/env.js"
+        owner: "{{ webadmin.user }}"
+        group: "{{ webadmin.group }}"
+        mode: 0644
+    
+    - name: Generate nginx.conf
+      template:
+        src: "fec_edda_web/nginx.conf.j2"
+        dest: "{{ nginx_conf_dir }}/nginx.conf"
+        owner: "{{ webadmin.user }}"
+        group: "{{ webadmin.group }}"
+        mode: 0644
+    
+    - name: Link nginx html to fec-edda-web
+      file:
+        src: "{{ target_dir }}"
+        dest: "{{ nginx_html_dir }}/fec-edda"
+        owner: "{{ webadmin.user }}"
+        group: "{{ webadmin.group }}"
+        state: link
+        
+  when: fec_edda_web_installation[host_name]|default(false)|bool == true
