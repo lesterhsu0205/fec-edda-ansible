@@ -8,17 +8,9 @@ fec_ap_history:
 ################################################################################
 #  Installation flag                                                           #
 ################################################################################
-fec_edda_api_installation:
+fec_edda_installation:
   tvuat-fec-was01: true
   tvuat-fec-was02: true
-
-fec_edda_txn_installation:
-  tvuat-fec-was01: true
-  tvuat-fec-was02: true
-
-# batch 無分散鎖，同環境僅能一台啟用
-fec_edda_batch_installation:
-  tvuat-fec-was01: true
 
 fec_edda_web_installation:
   tvuat-fec-was01: true
@@ -51,7 +43,10 @@ fec_edda_txn_config:
   jvm_opts: "-Xms1g -Xmx2g -XX:+UseG1GC"
 
 fec_edda_batch_config:
-  instance_id: "batch-uat-01"
+  # 依主機區分，須與 batch_job_config.designated_instance 一致
+  instance_id:
+    tvuat-fec-was01: "batch-uat-01"
+    tvuat-fec-was02: "batch-uat-02"
   jvm_opts: "-Xms512m -Xmx1g -XX:+UseG1GC"
 
 fec_edda_web_config:

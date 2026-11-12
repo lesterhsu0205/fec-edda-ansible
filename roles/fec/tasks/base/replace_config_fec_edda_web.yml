@@ -30,5 +30,3 @@
         owner: "{{ webadmin.user }}"
         group: "{{ webadmin.group }}"
         state: link
-        
-  when: fec_edda_web_installation[host_name]|default(false)|bool == true

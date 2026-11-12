@@ -7,6 +7,7 @@
       include_tasks: "base/replace_scripts.yml"
       vars:
         target_dir: "{{ fec_scripts_dir }}"
+      when: scripts_installation[host_name]|default(false)|bool == true
 
     - name: Replace {{ package }} setting
       include_tasks: "base/replace_config_{{ package }}.yml"
@@ -15,5 +16,6 @@
       loop_control:
         loop_var: package
       loop: "{{ package_list }}"
+      when: lookup('vars', package + '_installation')[host_name]|default(false)|bool == true
 
   become: yes

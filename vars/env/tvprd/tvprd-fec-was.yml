@@ -12,17 +12,9 @@ gv_repo_url: "https://repos.linebank.com.tw:8082/artifactory/golden-image-prd-re
 ################################################################################
 #  Installation flag                                                           #
 ################################################################################
-fec_edda_api_installation:
+fec_edda_installation:
   tvprd-fec-was01: true
   tvprd-fec-was02: true
-
-fec_edda_txn_installation:
-  tvprd-fec-was01: true
-  tvprd-fec-was02: true
-
-# batch 無分散鎖，同環境僅能一台啟用
-fec_edda_batch_installation:
-  tvprd-fec-was01: true
 
 fec_edda_web_installation:
   tvprd-fec-was01: true
@@ -54,7 +46,10 @@ fec_edda_txn_config:
   jvm_opts: "-Xms2g -Xmx4g -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath={{ fec_edda_log_dir }}/txn_heap_dump.hprof"
 
 fec_edda_batch_config:
-  instance_id: "batch-prd-01"
+  # 依主機區分，須與 batch_job_config.designated_instance 一致
+  instance_id:
+    tvprd-fec-was01: "batch-prd-01"
+    tvprd-fec-was02: "batch-prd-02"
   jvm_opts: "-Xms512m -Xmx1g -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath={{ fec_edda_log_dir }}/batch_heap_dump.hprof"
 
 fec_edda_web_config:

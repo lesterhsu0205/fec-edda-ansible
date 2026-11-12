@@ -10,13 +10,15 @@
       vars:
         gd_image_filename: "{{ fec_ap_artifactid }}-{{ fec_ap_version }}.zip"
         gd_image_url: "{{ gv_repo_url }}/com/line/bank/{{ fec_ap_artifactid }}/{{ fec_ap_version }}/{{ gd_image_filename }}"
-        gd_image_path: "{{ fec_sw_dir }}/{{ gd_image_filename }}"
-        gd_image_dest_path: "{{ fec_sw_dir }}"
+        gd_image_path: "{{ fec_ap_dir }}/{{ gd_image_filename }}"
+        gd_image_dest_path: "{{ fec_ap_dir }}"
+      when: fec_ap_installation[host_name]|default(false)|bool == true
 
     - name: "Remove golden image zip"
       file:
-        path: "{{ fec_sw_dir }}/{{ fec_ap_artifactid }}-{{ fec_ap_version }}.zip"
+        path: "{{ fec_ap_dir }}/{{ fec_ap_artifactid }}-{{ fec_ap_version }}.zip"
         state: absent
+      when: fec_ap_installation[host_name]|default(false)|bool == true
 
     - name: Change owner of fec-edda & fec-edda-web
       file:
@@ -27,6 +29,7 @@
       loop_control:
         loop_var: package
       loop: "{{ package_list }}"
+      when: lookup('vars', package + '_installation')[host_name]|default(false)|bool == true
 
   # zip 同時含 fec-edda、fec-edda-web，解壓後再依目錄 chown
   become: yes

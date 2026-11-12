@@ -18,16 +18,16 @@
       loop: "{{ fec_edda_secrets.keys() | list }}"
       no_log: true
   
-    - name: Initialize script_list 
+    - name: Initialize script_list
       set_fact:
-        script_list: 
+        script_list:
           - "start-api.sh"
           - "start-txn.sh"
           - "start-batch.sh"
           - "stop-api.sh"
           - "stop-txn.sh"
           - "stop-batch.sh"
-  
+
     - name: Generate bin scripts
       template:
         src: "fec_edda/bin/{{ script }}.j2"

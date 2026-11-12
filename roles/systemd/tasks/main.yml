@@ -1,7 +1,7 @@
 ---
 - tags:
   - always
-  block:  
+  block:
     - name: Initialize an empty list for service
       set_fact:
         service_list: []
@@ -13,13 +13,13 @@
         service_list: "{{ service_list + [ service ] }}"
       loop_control:
         loop_var: module
-      loop: "{{ module_list }}"  
-      when: lookup('vars', module + '_installation')[host_name]|default(false)|bool == true  
-    
+      loop: "{{ module_list }}"
+      when: lookup('vars', module + '_installation')[host_name]|default(false)|bool == true
+
     - name: Control services
       systemd:
         name: "{{ item }}"
-        state: "{{ action }}"  
+        state: "{{ action }}"
       with_items:
         - "{{ service_list }}"
       when: action == "reloaded" or action == "restarted" or action == "started" or action == "stopped"

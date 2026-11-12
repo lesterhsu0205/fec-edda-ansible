@@ -204,7 +204,7 @@ case $ENVIRONMENT in
 
         # Batch 設定
         export BATCH_SERVER_PORT={{ fec_edda_batch_port }}
-        export BATCH_INSTANCE_ID="{{ fec_edda_batch_config.instance_id }}"
+        export BATCH_INSTANCE_ID="{{ fec_edda_batch_config.instance_id[host_name] }}"
 
         # LB 健康檢查開關檔（存在時 /actuator/health 回 OUT_OF_SERVICE，由 healthcheck.sh 切換）
         export FEC_HC_DISABLED_FILE="{{ fec_edda_batch_hc_file }}"

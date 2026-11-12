@@ -27,14 +27,14 @@ lb_mount: "mount"
 lb_unmount: "unmount"
 
 # golden image 解壓目錄（zip 內含 fec-edda/、fec-edda-web/ 兩個頂層目錄）
-fec_sw_dir: "{{ gv_sw_dir }}/linebank"
+fec_ap_dir: "{{ gv_sw_dir }}/linebank"
 fec_ap_backup_dir: "{{ gv_backup_dir }}/linebank"
 fec_ap_rollback_dir: "{{ gv_rollback_dir }}/linebank"
 fec_ap_logs_dir: "{{ gv_logs_dir }}/linebank"
 
 # ansible 產生的維運腳本（healthcheck.sh）與 LB 健康檢查開關檔目錄
-fec_scripts_dir: "{{ fec_sw_dir }}/scripts"
-fec_hc_dir: "{{ fec_sw_dir }}/hc"
+fec_scripts_dir: "{{ fec_ap_dir }}/scripts"
+fec_hc_dir: "{{ fec_ap_dir }}/hc"
 
 # 機密檔變數前綴（STG / UAT / PRD / DR），對應 fec-edda-secrets.<env>.env
 fec_secret_prefix: "{{ gv_env_name | upper }}"
@@ -84,11 +84,17 @@ package_list:
   - "{{ fec_edda }}"
   - "{{ fec_edda_web }}"
 
-fec_edda_dir: "{{ fec_sw_dir }}/fec-edda"
-fec_edda_web_dir: "{{ fec_sw_dir }}/fec-edda-web"
+fec_edda_dir: "{{ fec_ap_dir }}/fec-edda"
+fec_edda_web_dir: "{{ fec_ap_dir }}/fec-edda-web"
 
 fec_edda_owner: "{{ fecadmin }}"
 fec_edda_web_owner: "{{ webadmin }}"
+
+# 任一 package 有裝即視為本主機需安裝（golden image 下載解壓、daemon_reload）
+fec_ap_installation: "{{ { host_name: (fec_edda_installation[host_name]|default(false)|bool or fec_edda_web_installation[host_name]|default(false)|bool) } }}"
+
+# scripts（healthcheck.sh）會操作全部 module，跟隨 fec_ap_installation
+scripts_installation: "{{ fec_ap_installation }}"
 
 # Backup path
 fec_edda_backup_dir: "{{ fec_ap_backup_dir }}/fec-edda"
@@ -111,6 +117,11 @@ module_list:
   - "{{ fec_edda_txn | lower }}"
   - "{{ fec_edda_batch | lower }}"
   - "{{ fec_edda_web_app | lower }}"
+
+# module 跟隨所屬 package 安裝（fec-edda 三模組同上同下）；fec_edda_web 與 package 同名，直接沿用
+fec_edda_api_installation: "{{ fec_edda_installation }}"
+fec_edda_txn_installation: "{{ fec_edda_installation }}"
+fec_edda_batch_installation: "{{ fec_edda_installation }}"
 
 fec_edda_api_port: 18643
 fec_edda_txn_port: 18443

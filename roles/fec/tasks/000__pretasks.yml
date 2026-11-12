@@ -21,7 +21,7 @@
         user: "{{ fecadmin }}"
         permission: "755"
         directory_list:
-          - "{{ fec_sw_dir }}"
+          - "{{ fec_ap_dir }}"
           - "{{ fec_ap_backup_dir }}"
           - "{{ fec_scripts_dir }}"
           - "{{ fec_hc_dir }}"
@@ -38,5 +38,7 @@
       loop_control:
         loop_var: package
       loop: "{{ package_list }}"
+      # api/txn/batch 的 log 都是存在 fec_edda_log_dir
+      when: lookup('vars', package + '_installation')[host_name]|default(false)|bool == true
 
   become: yes

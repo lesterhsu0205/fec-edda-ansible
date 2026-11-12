@@ -8,14 +8,7 @@ fec_ap_history:
 ################################################################################
 #  Installation flag                                                           #
 ################################################################################
-fec_edda_api_installation:
-  tvstg-fec-was01: true
-
-fec_edda_txn_installation:
-  tvstg-fec-was01: true
-
-# batch 無分散鎖，同環境僅能一台啟用
-fec_edda_batch_installation:
+fec_edda_installation:
   tvstg-fec-was01: true
 
 fec_edda_web_installation:
@@ -48,7 +41,9 @@ fec_edda_txn_config:
   jvm_opts: "-Xms512m -Xmx1g -XX:+UseG1GC"
 
 fec_edda_batch_config:
-  instance_id: "batch-stg-01"
+  # 依主機區分，須與 batch_job_config.designated_instance 一致
+  instance_id:
+    tvstg-fec-was01: "batch-stg-01"
   jvm_opts: "-Xms256m -Xmx512m -XX:+UseG1GC"
 
 fec_edda_web_config:
