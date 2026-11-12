@@ -29,7 +29,7 @@ while [ $# -gt 0 ]; do
   shift
 done
 
-# 開關檔存在時，該模組 health 端點回 503（api/txn/batch：/actuator/health；web：hc.html）
+# 開關檔存在時，該模組 health 端點回 404（api/txn/batch：/actuator/health；web：hc.html）
 hc_files=(
 {% for module in module_list %}
 {% if lookup('vars', module + '_installation')[host_name] | default(false) | bool %}

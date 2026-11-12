@@ -38,7 +38,7 @@
         tasks_from: "verify_hc.yml"
       vars:
         hc_url: "{{ lookup('vars', module + '_hc_url') }}"
-        expected_code: "{{ 200 if lbaction == 'mount' else 503 }}"
+        expected_code: "{{ 200 if lbaction == 'mount' else 404 }}"
       loop_control:
         loop_var: module
       loop: "{{ active_modules }}"

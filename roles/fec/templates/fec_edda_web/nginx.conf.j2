@@ -82,12 +82,12 @@ http {
             proxy_send_timeout    60s;
         }
 
-        # LB 健康檢查：開關檔存在時回 503 讓 LB 摘除節點（由 healthcheck.sh -action disable/enable 切換）
+        # LB 健康檢查：開關檔存在時回 404 讓 LB 摘除節點（由 healthcheck.sh -action disable/enable 切換）
         location = /fec-edda/hc.html {
             access_log off;
             add_header Cache-Control "no-cache" always;
             if (-f {{ fec_edda_web_hc_file }}) {
-                return 503;
+                return 404;
             }
             default_type text/plain;
             return 200 "OK\n";
