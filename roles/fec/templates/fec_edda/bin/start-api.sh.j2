@@ -229,15 +229,11 @@ esac
 
 case $ENVIRONMENT in
     {{ gv_env_name }})
-        # ===================================================================
-        # {{ gv_env_name }} 環境配置（由 ansible 依 vars/env 產生）
-        # ===================================================================
 {% if fec_edda_api_config.swagger_enabled | default(false) | bool %}
-
-        # Swagger UI 啟用
+        # Swagger UI 啟用（僅預生產環境）
         export SWAGGER_ENABLED="true"
-{% endif %}
 
+{% endif %}
         # LOG_PATH
         export LOG_PATH="{{ fec_edda_log_dir }}"
 
@@ -260,16 +256,17 @@ case $ENVIRONMENT in
         export LINE_SSO_ENABLED={{ fec_edda_api_config.line_sso_enabled | bool | lower }}
 {% if fec_edda_api_config.line_sso_cas_server_url_prefix | default('') | length > 0 %}
 
-        # CAS SSO 伺服器（未設定時 yml 預設值為測試環境 SSO）
+        # 正式環境 CAS SSO 伺服器（對應 application.yml 註解之 PRD URL；
+        # 未設定時 yml 預設值為測試環境 SSO，正式環境必須由此覆蓋）
         export LINE_SSO_CAS_SERVER_URL_PREFIX="{{ fec_edda_api_config.line_sso_cas_server_url_prefix }}"
 {% endif %}
 
-        # SERVER SSL
+        # SERVER SSL（REST API HTTPS）
         export SSL_KEYSTORE_PATH="${CERT_BASE_DIR}/{{ fec_edda_api_config.ssl_keystore_file }}"
         export SSL_KEYSTORE_PASSWORD="${{ '{' ~ fec_secret_prefix }}_KEYSTORE_PASSWORD}"
 
         # 系統通知發送委派交易端（api → txn 內部 HTTPS 呼叫）
-        # 主機名必須與 txn 伺服器憑證 SAN 相符，不可用 localhost
+        # base-url 指向 txn（同機或內部主機）；信任庫沿用本行憑證以驗證 txn 伺服器憑證
         export FEC_TXN_BASE_URL="{{ fec_edda_api_config.txn_base_url }}"
         # 純檔案路徑，由 TxnClientConfig 以 FileSystemResource 載入
         export FEC_TXN_TRUST_STORE="${SSL_KEYSTORE_PATH}"

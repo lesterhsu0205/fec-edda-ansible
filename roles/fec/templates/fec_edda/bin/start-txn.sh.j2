@@ -225,10 +225,6 @@ esac
 
 case $ENVIRONMENT in
     {{ gv_env_name }})
-        # ===================================================================
-        # {{ gv_env_name }} 環境配置（由 ansible 依 vars/env 產生）
-        # ===================================================================
-
         # LOG_PATH
         export LOG_PATH="{{ fec_edda_log_dir }}"
 
@@ -245,25 +241,24 @@ case $ENVIRONMENT in
         export SSL_ENABLED=true
         export EDDA_SERVER_SSL_ENABLED=true
 
-        # SERVER SSL
+        # SERVER SSL（REST API HTTPS）
         export SSL_KEYSTORE_PATH="${CERT_BASE_DIR}/{{ fec_edda_txn_config.ssl_keystore_file }}"
         export SSL_KEYSTORE_PASSWORD="${{ '{' ~ fec_secret_prefix }}_KEYSTORE_PASSWORD}"
 
-        # SSL/TLS SOAP Server
+        # SSL/TLS SOAP Server（CXF WebService mTLS）
         export WS_SSL_KEYSTORE_PATH="${CERT_BASE_DIR}/{{ fec_edda_txn_config.ws_ssl_keystore_file }}"
         export WS_SSL_KEYSTORE_PASSWORD="${{ '{' ~ fec_secret_prefix }}_WS_KEYSTORE_PASSWORD}"
         export WS_SSL_TRUSTSTORE_PATH="${CERT_BASE_DIR}/{{ fec_edda_txn_config.ws_ssl_truststore_file }}"
         export WS_SSL_TRUSTSTORE_PASSWORD="${{ '{' ~ fec_secret_prefix }}_TRUSTSTORE_PASSWORD}"
 
-        # MAC 金鑰
+        # MAC 金鑰（由機密檔 fec-edda-secrets.<env>.env 提供）
         export EDDA_MAC_KEY_A="${{ '{' ~ fec_secret_prefix }}_MAC_KEY_A}"
         export EDDA_MAC_KEY_B="${{ '{' ~ fec_secret_prefix }}_MAC_KEY_B}"
         export EDDA_MAC_KEY_C="${{ '{' ~ fec_secret_prefix }}_MAC_KEY_C}"
 
-        # eDDA 模式（test：跳過 MAC 驗證，使用模擬回應；real：完整 MAC 驗證）
+        # eDDA 模式（{% if fec_edda_txn_config.edda_mode == 'test' %}test：跳過 MAC 驗證，使用模擬回應{% else %}real：完整 MAC 驗證，實際呼叫票交所{% endif %}）
         export EDDA_MODE={{ fec_edda_txn_config.edda_mode }}
 
-        # 票交所 WSDL
         export EDDA_TWNCH_NOTICE_SYS_MSG_BC_WSDL="{{ fec_edda_txn_config.twnch_notice_sys_msg_bc_wsdl }}"
 
         # i18n 訊息檔案（外部路徑，支援不重啟 reload）
